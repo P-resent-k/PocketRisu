@@ -112,6 +112,51 @@ describe('module binding identity', () => {
         )).toBe('illustration')
     })
 
+    test('matches the LightBoard manifest identifier even when it differs from the namespace', () => {
+        const owner = mod('owner')
+        owner.namespace = 'lightboard'
+        const diary = mod('diary')
+        diary.namespace = 'lb-diary'
+        diary.lorebook = [{ comment: 'manifest.lb', content: 'friendlyName=Diary\r\nidentifier = diary\r\nmode=1' }]
+
+        expect(resolveModuleRoutingSignature(
+            owner.id,
+            [{ content: 'generated request\n[lb-routing/diary]' }],
+            [owner, diary],
+        )).toBe('diary')
+    })
+
+    test('ignores identifiers outside manifest.lb', () => {
+        const owner = mod('owner')
+        owner.namespace = 'lightboard'
+        const extension = mod('extension')
+        extension.namespace = 'lb-minitalk-stdblock'
+        extension.lorebook = [{ comment: 'lb-minitalk.openblock', content: 'identifier=diary' }]
+
+        expect(resolveModuleRoutingSignature(
+            owner.id,
+            [{ content: '[lb-routing/diary]' }],
+            [owner, extension],
+        )).toBeUndefined()
+    })
+
+    test('rejects a manifest identifier declared by multiple modules', () => {
+        const owner = mod('owner')
+        owner.namespace = 'lightboard'
+        const first = mod('first')
+        first.namespace = 'lb-diary'
+        first.lorebook = [{ comment: 'manifest.lb', content: 'identifier=diary' }]
+        const second = mod('second')
+        second.namespace = 'lb-other'
+        second.lorebook = [{ comment: 'manifest.lb', content: 'identifier=diary' }]
+
+        expect(resolveModuleRoutingSignature(
+            owner.id,
+            [{ content: '[lb-routing/diary]' }],
+            [owner, first, second],
+        )).toBeUndefined()
+    })
+
     test('rejects multiple routing signatures', () => {
         const owner = mod('owner', { lowLevelAccess: true })
         owner.namespace = 'lightboard'

@@ -41,16 +41,29 @@ export function migrateModuleBindingKeys(
 
 const ROUTING_SIGNATURE = /(?:^|\n)\[lb-routing\/([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\](?=$|\n)/g
 
+function hasManifestIdentifier(module: Pick<RisuModule, 'lorebook'>, identifier: string): boolean {
+    return module.lorebook?.some((entry) =>
+        entry.comment === 'manifest.lb'
+        && typeof entry.content === 'string'
+        && entry.content.split(/\r?\n/).some((line) => {
+            const separator = line.indexOf('=')
+            return separator >= 0
+                && line.slice(0, separator).trim() === 'identifier'
+                && line.slice(separator + 1).trim() === identifier
+        })
+    ) ?? false
+}
+
 /**
- * LightBoard puts a stable routing marker in its own auxiliary prompts. Match
- * it only for an already-attributed module request, so normal chat text cannot
- * select a module preset. Multiple or unknown markers deliberately fall back
- * to the module that made the request.
+ * LightBoard builds its routing marker from the manifest.lb identifier, which
+ * can differ from the installed module's namespace. Keep exact namespace
+ * matching for existing markers. Only already-attributed
+ * LightBoard requests may use a marker; ambiguous matches keep the owner.
  */
 export function resolveModuleRoutingSignature(
     ownerModuleId: string | undefined,
     messages: readonly { content?: string }[] | undefined,
-    modules: Pick<RisuModule, 'id' | 'namespace'>[],
+    modules: Pick<RisuModule, 'id' | 'namespace' | 'lorebook'>[],
 ): string | undefined {
     if (!ownerModuleId || !messages) return undefined
     const owner = modules.find((module) => module.id === ownerModuleId)
@@ -66,6 +79,11 @@ export function resolveModuleRoutingSignature(
     if (signatures.size !== 1) return undefined
 
     const [signature] = signatures
+    const manifestMatches = modules.filter((module) => hasManifestIdentifier(module, signature))
+    if (manifestMatches.length > 0) {
+        return manifestMatches.length === 1 ? manifestMatches[0].id : undefined
+    }
+
     const matches = modules.filter((module) => module.namespace === signature)
     return matches.length === 1 ? matches[0].id : undefined
 }
