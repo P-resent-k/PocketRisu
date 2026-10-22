@@ -126,7 +126,8 @@ describe('resolveChatModelBinding — per-module override', () => {
             .toEqual({ kind: 'modelPreset', preset: MODULE_PRESET })
     })
 
-    test('a LightBoard routing signature selects the delegated module binding', () => {
+    test.each(['emotion', 'memory', 'otherAx', 'submodel', 'translate'] as const)(
+        'a LightBoard routing signature selects the delegated module binding for %s', (mode) => {
         mockDb.modules = [
             { id: 'lightboard-owner', namespace: 'lightboard' },
             {
@@ -142,7 +143,7 @@ describe('resolveChatModelBinding — per-module override', () => {
 
         expect(resolveChatModelBinding(
             classicChat,
-            'otherAx',
+            mode,
             'lightboard-owner',
             [{ content: 'internal prompt\n[lb-routing/diary]' }],
         )).toEqual({ kind: 'modelPreset', preset: MODULE_PRESET })
